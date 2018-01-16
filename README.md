@@ -1,7 +1,8 @@
-# sublime-extract-to-file
+# sublime-extract-to-blade
 
-This plugin for Sublime Text 3 allows you to extract the selected text into a new or existing file.
+This plugin for Sublimee Text 3 allows you to extract the selected text into a new or existing laravel blade views.
 
 ## Usage
 
-Select some text, open the Command Palette, and look for "Extract: Move selection to file ..."
+Select some text, open the Command Palette, and look for "Extract: Move selection to blade view ..."
+

@@ -2,7 +2,7 @@ import sublime, sublime_plugin
 import os
 from time import sleep
 
-class ExtractToFileCommand(sublime_plugin.TextCommand):
+class ExtractToBladeCommand(sublime_plugin.TextCommand):
   def run(self, edit):
     self.edit = edit
     self.sublime_vars = self.view.window().extract_variables()
@@ -13,48 +13,56 @@ class ExtractToFileCommand(sublime_plugin.TextCommand):
       if not region.empty():
         self.text_selected = self.view.substr(region)
 
-    # ask the user where to put the text
-    self.file_choices = ['New file ...'] + os.listdir(self.sublime_vars['file_path'])
 
-    self.view.window().show_quick_panel(
-      self.file_choices,
-
-      self.item_chosen,        # Callback
-      sublime.MONOSPACE_FONT,  # Options
-      0,                       # Starting index
-      self.item_highlighted    # Callback
-    )
-
-    # print(os.listdir(dir_of_script))
-
-  def item_chosen(self, i):
-    # Special case: new file
-    if (i == 0):
       self.view.window().show_input_panel(
-        ('File name (in %s):' % (self.sublime_vars['file_path'])),
+        ('File name (in %s): (suffix: .blade.php)' % (self.sublime_vars['file_path'])),
         '',
         self.append_to_file,
         None,  # No 'change' handler
         None   # No 'cancel' handler
       )
 
-    # append to existing file
-    else:
-      self.append_to_file(self.file_choices[i])
 
   def append_to_file(self, filename):
-    pathname = self.sublime_vars['file_path'] + '/' + filename
+    filename = filename.replace('.blade.php','')
+    absolute_pathname = os.path.abspath(self.sublime_vars['file_path'] + '/' + filename)
+    blade_path = self.resolve_blade_path(absolute_pathname)
+    blade_filename = blade_path
+    output_directory = os.path.dirname(absolute_pathname)
+
+    if '.' in blade_path:
+        blade_filename = blade_filename.replace('.','/')
+        output_directory = os.path.dirname(output_directory + '/' + blade_filename)
+        blade_filename = os.path.basename( blade_filename )
+        blade_path = self.resolve_blade_path( output_directory + '/' + blade_filename )
+
+    blade_filename = blade_filename + '.blade.php'
 
     # Remove the original text
     self.view.run_command('left_delete')
 
+    # Create the blade "include" sentence
+    self.view.run_command('insert', {"characters": '@include("' + blade_path + '")'})
+
+    # Hide Autocomplete
+    self.view.run_command('insert', {"characters": '\n'})
+    self.view.run_command("hide_auto_complete")
+
+    # Create the directory for the extracted new file if not exist
+    if not os.path.exists(output_directory):
+        os.makedirs(output_directory)
+
+    absolute_file_path = output_directory + '/' + blade_filename
     # Add the text to the file
-    f = open(pathname, 'a')
-    f.write("\n" + self.text_selected)
+    f = open(absolute_file_path, 'a')
+    f.write(self.text_selected)
     f.close()
 
     # Display the file, after appending to it
-    file_view = self.view.window().open_file(pathname)
+    file_view = self.view.window().open_file(absolute_file_path)
 
-  def item_highlighted(self, i):
-    1
+  def resolve_blade_path(self, absolute_pathname):
+    blade_filename = absolute_pathname.lower().replace('\\','/').split('resources/views/',1)[1]
+    blade_filename = blade_filename.replace('/', '.')
+
+    return blade_filename

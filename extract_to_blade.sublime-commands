@@ -1,6 +1,6 @@
 [
   {
-    "caption": "Extract: Move selection to file ...",
-    "command": "extract_to_file"
+    "caption": "Extract: Move selection to blade view ...",
+    "command": "extract_to_blade"
   }
 ]
