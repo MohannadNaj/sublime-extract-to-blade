@@ -1,5 +1,6 @@
 import sublime, sublime_plugin
 import os
+import sys
 from time import sleep
 
 class ExtractToBladeCommand(sublime_plugin.TextCommand):
@@ -32,20 +33,19 @@ class ExtractToBladeCommand(sublime_plugin.TextCommand):
   def append_to_file(self, filename):
     filename = filename.replace('.blade.php','')
     absolute_pathname = os.path.abspath(self.sublime_vars['file_path'] + '/' + filename)
-    blade_path = self.resolve_blade_path(absolute_pathname)
-    blade_filename = blade_path
-    output_directory = os.path.dirname(absolute_pathname)
+    basename = os.path.basename(absolute_pathname)
+    
+    if '.' in basename:
+        absolute_pathname = os.path.abspath(absolute_pathname.replace(basename,'') + '/' + basename.replace('.','/'))
+        basename = os.path.basename(absolute_pathname)
 
-    if '.' in blade_path:
-        blade_filename = blade_filename.replace('.','/')
-        output_directory = os.path.dirname(output_directory + '/' + blade_filename)
-        blade_filename = os.path.basename( blade_filename )
-        blade_path = self.resolve_blade_path( output_directory + '/' + blade_filename )
+    output_directory = os.path.dirname(absolute_pathname)
+    blade_path = self.resolve_blade_path(absolute_pathname)
 
     # save how the last time the user entered the path to the blade view
-    blade_dirpath = self.rreplace(filename, blade_filename, '',1)
+    blade_dirpath = self.rreplace(filename, basename, '',1)
 
-    blade_filename = blade_filename + '.blade.php'
+    blade_filename = basename + '.blade.php'
 
     # Remove the original text
     self.view.run_command('left_delete')
