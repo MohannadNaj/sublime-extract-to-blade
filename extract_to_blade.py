@@ -1,88 +1,64 @@
 import sublime, sublime_plugin
 import os
-import sys
 from time import sleep
 
 class ExtractToBladeCommand(sublime_plugin.TextCommand):
   def run(self, edit):
-    self.edit = edit
-    self.sublime_vars = self.view.window().extract_variables()
-    self.file_path = self.sublime_vars['file_path']
-    self.save_last_path = sublime.load_settings('Preferences.sublime-settings').get('extract_to_blade_save_last_path', True)
-    self.allow_relative_path = sublime.load_settings('Preferences.sublime-settings').get('extract_to_blade_relative_path', False)
-
-    default_input = ''
+    self.init()
 
     if not self.allow_relative_path:
-        self.file_path = self.file_path.lower().replace('\\','/').split('resources/views/',1)[0] + 'resources/views/'
+        self.sublime_file_path = self.blade_views_dir(self.sublime_file_path)['path_to_views']
 
     if self.save_last_path:
-        default_input = self.view.window().project_data().get('extract2blade_last_blade_path','')
+        self.default_blade_input = self.project_data.get('extract2blade_last_blade_path','')
 
-    # extract the text
-    self.text_selected = ''
+    # If multiple selection, join it by a new line separator
     for region in self.view.sel():
       if not region.empty():
-        self.text_selected = self.view.substr(region)
+        self.text_selected = self.text_selected + self.view.substr(region) + '\n'
 
+    # Remove last new line formatter
+    self.text_selected = self.rreplace(self.text_selected,'\n','',1)
 
-
-      self.view.window().show_input_panel(
-        ('File name (in %s): (suffix: .blade.php)' % (self.file_path)),
-        default_input,
-        self.append_to_file,
+    # Open the new blade file input panel
+    self.window.show_input_panel(
+        ('File name (in %s): (suffix: .blade.php)' % (self.sublime_file_path)),
+        self.default_blade_input, # Default value in input
+        self.append_to_file, # Method to execute after input
         None,  # No 'change' handler
         None   # No 'cancel' handler
-      )
+    )
 
 
-  def append_to_file(self, filename):
-    filename = filename.replace('.blade.php','')
-    absolute_pathname = os.path.abspath(self.file_path + '/' + filename)
-    basename = os.path.basename(absolute_pathname)
-    
-    if '.' in basename:
-        absolute_pathname = os.path.abspath(absolute_pathname.replace(basename,'') + '/' + basename.replace('.','/'))
-        basename = os.path.basename(absolute_pathname)
+  def append_to_file(self, input_filename):
+    input_filename = input_filename.replace('.blade.php','')
 
-    output_directory = os.path.dirname(absolute_pathname)
-    blade_path = self.resolve_blade_path(absolute_pathname)
+    output_paths = self.output_paths(input_filename)
+    blade_paths = self.blade_paths(output_paths['abspath'], input_filename, output_paths['basename'])
 
-    # save how the last time the user entered the path to the blade view
-    blade_dirpath = self.rreplace(filename, basename, '',1)
+    absolute_file_path = output_paths['output_directory'] + '/' + blade_paths['filename']
 
-    blade_filename = basename + '.blade.php'
+    # Create the directory for the extracted new file if not exist
+    self.create_dir(output_paths['output_directory'])
+
+    # Add or append the text to the file
+    self.write_to_file(absolute_file_path, self.text_selected)
 
     # Remove the original text
     self.view.run_command('left_delete')
 
-    # Create the blade "include" sentence
-    self.view.run_command('insert', {"characters": '@include("' + blade_path + '")'})
-
-    # Hide Autocomplete
-    self.view.run_command('insert', {"characters": '\n'})
-    self.view.run_command("hide_auto_complete")
-
-    # Create the directory for the extracted new file if not exist
-    if not os.path.exists(output_directory):
-        os.makedirs(output_directory)
-
-    absolute_file_path = output_directory + '/' + blade_filename
-    # Add the text to the file
-    f = open(absolute_file_path, 'a')
-    f.write(self.text_selected)
-    f.close()
-
-    if self.save_last_path:
-        proj_data = self.view.window().project_data()
-        proj_data['extract2blade_last_blade_path'] = blade_dirpath
-        self.view.window().set_project_data(proj_data)
+    # Insert include sentence
+    self.insert_include_sentence(blade_paths['path'])
 
     # Display the file, after appending to it
-    file_view = self.view.window().open_file(absolute_file_path)
+    file_view = self.window.open_file(absolute_file_path)
 
-  def resolve_blade_path(self, absolute_pathname):
-    blade_filename = absolute_pathname.lower().replace('\\','/').split('resources/views/',1)[1]
+    # If enabled, save how the user entered the path to the file
+    if self.save_last_path:
+        self.store_user_dirpath(blade_paths['user_dirpath'])
+
+  def resolve_blade_path(self, abspath):
+    blade_filename = self.blade_views_dir(abspath)['path_after_views']
     blade_filename = blade_filename.replace('/', '.')
 
     return blade_filename
@@ -90,3 +66,71 @@ class ExtractToBladeCommand(sublime_plugin.TextCommand):
   # replace last occurrence of string https://stackoverflow.com/a/2556156/4330182
   def rreplace(self, s, old, new, count):
     return (s[::-1].replace(old[::-1], new[::-1], count))[::-1]
+
+  def blade_views_dir(self, absolute_path):
+    absolute_path = absolute_path.lower().replace('\\','/').split('resources/views/',1)
+    absolute_path[0] = absolute_path[0] + 'resources/views/'
+    return { "path_to_views" : absolute_path[0], "path_after_views" : absolute_path[1] }
+
+  def init(self):
+    self.init_defaults()
+    self.load_settings()
+
+  def init_defaults(self):
+    self.window = self.view.window()
+    self.sublime_vars = self.window.extract_variables()
+    self.project_data = self.window.project_data()
+    self.sublime_file_path = self.sublime_vars['file_path']
+    self.default_blade_input = ''
+    # extract the text
+    self.text_selected = ''
+
+  def load_settings(self):
+    sublime_preferences = sublime.load_settings('Preferences.sublime-settings')
+    self.save_last_path = sublime_preferences.get('extract_to_blade_save_last_path', True)
+    self.allow_relative_path = sublime_preferences.get('extract_to_blade_relative_path', False)
+
+  def output_paths(self, filename):
+    abspath = os.path.abspath(self.sublime_file_path + '/' + filename)
+    basename = os.path.basename(abspath)
+    
+    if '.' in basename:
+        abspath = os.path.abspath(abspath.replace(basename,'') + '/' + basename.replace('.','/'))
+        basename = os.path.basename(abspath)
+
+    output_directory = os.path.dirname(abspath)
+    return {"abspath": abspath, "basename": basename, "output_directory": output_directory}
+
+  def blade_paths(self, abspath, input_filename, basename):
+    blade_path = self.resolve_blade_path(abspath)
+    # save how the last time the user entered the path to the blade view
+    # by ripping off the resolved basename from the input
+    blade_user_dirpath = self.rreplace(input_filename, basename, '',1)
+
+    blade_filename = basename + '.blade.php'
+
+    return {"path": blade_path, "user_dirpath": blade_user_dirpath, "filename": blade_filename}
+
+  def insert_include_sentence(self, blade_path):
+    include_sentence = '@include("' + blade_path + '")'
+
+    # Create the blade "include" sentence
+    self.view.run_command('insert', {"characters": include_sentence })
+
+    # Hide Autocomplete
+    self.view.run_command('insert', {"characters": '\n'})
+    self.view.run_command("hide_auto_complete")
+
+  def create_dir(self, directory):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+  def write_to_file(self, absolute_file_path, text):
+    f = open(absolute_file_path, 'a')
+    f.write(text)
+    f.close()
+
+  def store_user_dirpath(self, user_dirpath):
+    proj_data = self.project_data
+    proj_data['extract2blade_last_blade_path'] = user_dirpath
+    self.window.set_project_data(proj_data)
