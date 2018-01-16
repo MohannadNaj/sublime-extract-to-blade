@@ -6,6 +6,12 @@ class ExtractToBladeCommand(sublime_plugin.TextCommand):
   def run(self, edit):
     self.edit = edit
     self.sublime_vars = self.view.window().extract_variables()
+    self.save_last_path = sublime.load_settings('Preferences.sublime-settings').get('extract_to_blade_save_last_path', True)
+
+    default_input = ''
+
+    if self.save_last_path:
+        default_input = self.view.window().project_data().get('extract2blade_last_blade_path','')
 
     # extract the text
     self.text_selected = ''
@@ -16,7 +22,7 @@ class ExtractToBladeCommand(sublime_plugin.TextCommand):
 
       self.view.window().show_input_panel(
         ('File name (in %s): (suffix: .blade.php)' % (self.sublime_vars['file_path'])),
-        '',
+        default_input,
         self.append_to_file,
         None,  # No 'change' handler
         None   # No 'cancel' handler
@@ -35,6 +41,9 @@ class ExtractToBladeCommand(sublime_plugin.TextCommand):
         output_directory = os.path.dirname(output_directory + '/' + blade_filename)
         blade_filename = os.path.basename( blade_filename )
         blade_path = self.resolve_blade_path( output_directory + '/' + blade_filename )
+
+    # save how the last time the user entered the path to the blade view
+    blade_dirpath = self.rreplace(filename, blade_filename, '',1)
 
     blade_filename = blade_filename + '.blade.php'
 
@@ -58,6 +67,11 @@ class ExtractToBladeCommand(sublime_plugin.TextCommand):
     f.write(self.text_selected)
     f.close()
 
+    if self.save_last_path:
+        proj_data = self.view.window().project_data()
+        proj_data['extract2blade_last_blade_path'] = blade_dirpath
+        self.view.window().set_project_data(proj_data)
+
     # Display the file, after appending to it
     file_view = self.view.window().open_file(absolute_file_path)
 
@@ -66,3 +80,7 @@ class ExtractToBladeCommand(sublime_plugin.TextCommand):
     blade_filename = blade_filename.replace('/', '.')
 
     return blade_filename
+
+  # replace last occurrence of string https://stackoverflow.com/a/2556156/4330182
+  def rreplace(self, s, old, new, count):
+    return (s[::-1].replace(old[::-1], new[::-1], count))[::-1]
