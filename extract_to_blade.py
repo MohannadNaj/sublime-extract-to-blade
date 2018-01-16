@@ -7,9 +7,14 @@ class ExtractToBladeCommand(sublime_plugin.TextCommand):
   def run(self, edit):
     self.edit = edit
     self.sublime_vars = self.view.window().extract_variables()
+    self.file_path = self.sublime_vars['file_path']
     self.save_last_path = sublime.load_settings('Preferences.sublime-settings').get('extract_to_blade_save_last_path', True)
+    self.allow_relative_path = sublime.load_settings('Preferences.sublime-settings').get('extract_to_blade_relative_path', False)
 
     default_input = ''
+
+    if not self.allow_relative_path:
+        self.file_path = self.file_path.lower().replace('\\','/').split('resources/views/',1)[0] + 'resources/views/'
 
     if self.save_last_path:
         default_input = self.view.window().project_data().get('extract2blade_last_blade_path','')
@@ -21,8 +26,9 @@ class ExtractToBladeCommand(sublime_plugin.TextCommand):
         self.text_selected = self.view.substr(region)
 
 
+
       self.view.window().show_input_panel(
-        ('File name (in %s): (suffix: .blade.php)' % (self.sublime_vars['file_path'])),
+        ('File name (in %s): (suffix: .blade.php)' % (self.file_path)),
         default_input,
         self.append_to_file,
         None,  # No 'change' handler
@@ -32,7 +38,7 @@ class ExtractToBladeCommand(sublime_plugin.TextCommand):
 
   def append_to_file(self, filename):
     filename = filename.replace('.blade.php','')
-    absolute_pathname = os.path.abspath(self.sublime_vars['file_path'] + '/' + filename)
+    absolute_pathname = os.path.abspath(self.file_path + '/' + filename)
     basename = os.path.basename(absolute_pathname)
     
     if '.' in basename:
