@@ -26,9 +26,14 @@ class ExtractToBladeCommand(sublime_plugin.TextCommand):
         self.default_blade_input, # Default value in input
         self.append_to_file, # Method to execute after input
         None,  # No 'change' handler
-        None   # No 'cancel' handler
+        self.cancel_handler
     )
 
+  # If the feature is enabled, Cancel handler
+  # will reset the last blade path
+  def cancel_handler(self):
+    if self.save_last_path:
+        self.store_user_dirpath('')
 
   def append_to_file(self, input_filename):
     input_filename = input_filename.replace('.blade.php','')
