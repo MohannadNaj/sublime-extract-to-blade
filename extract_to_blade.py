@@ -60,7 +60,6 @@ class ExtractToBladeCommand(sublime_plugin.TextCommand):
   def resolve_blade_path(self, abspath):
     blade_filename = self.blade_views_dir(abspath)['path_after_views']
     blade_filename = blade_filename.replace('/', '.')
-
     return blade_filename
 
   # replace last occurrence of string https://stackoverflow.com/a/2556156/4330182
@@ -68,9 +67,16 @@ class ExtractToBladeCommand(sublime_plugin.TextCommand):
     return (s[::-1].replace(old[::-1], new[::-1], count))[::-1]
 
   def blade_views_dir(self, absolute_path):
-    absolute_path = absolute_path.lower().replace('\\','/').split('resources/views/',1)
-    absolute_path[0] = absolute_path[0] + 'resources/views/'
-    return { "path_to_views" : absolute_path[0], "path_after_views" : absolute_path[1] }
+    absolute_path = absolute_path.lower().replace('\\','/').split('resources/views',1)
+    path_to_views = absolute_path[0] + 'resources/views/'
+
+
+    try:
+        path_after_views = absolute_path[1][1:] # remove first character
+    except IndexError:
+        path_after_views = ""
+
+    return { "path_to_views" : path_to_views, "path_after_views" : path_after_views }
 
   def init(self):
     self.init_defaults()
