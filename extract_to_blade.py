@@ -89,6 +89,7 @@ class ExtractToBladeCommand(sublime_plugin.TextCommand):
     sublime_preferences = sublime.load_settings('Preferences.sublime-settings')
     self.save_last_path = sublime_preferences.get('extract_to_blade_save_last_path', True)
     self.allow_relative_path = sublime_preferences.get('extract_to_blade_relative_path', False)
+    self.include_sentence = sublime_preferences.get('extract_to_blade_include_sentence', "@include('%s')")
 
   def output_paths(self, filename):
     abspath = os.path.abspath(self.sublime_file_path + '/' + filename)
@@ -112,7 +113,7 @@ class ExtractToBladeCommand(sublime_plugin.TextCommand):
     return {"path": blade_path, "user_dirpath": blade_user_dirpath, "filename": blade_filename}
 
   def insert_include_sentence(self, blade_path):
-    include_sentence = '@include("' + blade_path + '")'
+    include_sentence = (self.include_sentence % (blade_path))
 
     # Create the blade "include" sentence
     self.view.run_command('insert', {"characters": include_sentence })
