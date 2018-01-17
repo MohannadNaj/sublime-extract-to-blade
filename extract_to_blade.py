@@ -58,6 +58,9 @@ class ExtractToBladeCommand(sublime_plugin.TextCommand):
     # Display the file, after appending to it
     file_view = self.window.open_file(absolute_file_path)
 
+    # Keep the view open
+    self.window.focus_view(self.view)
+
     # If enabled, save how the user entered the path to the file
     if self.save_last_path:
         self.store_user_dirpath(blade_paths['user_dirpath'])
