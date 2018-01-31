@@ -1,4 +1,5 @@
 {
     "extract_to_blade_save_last_path": true,
-    "extract_to_blade_relative_path": false
+    "extract_to_blade_relative_path": false,
+    "extract_to_blade_include_sentence": "@include('%s')"
 }
